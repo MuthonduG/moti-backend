@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>OTP Verification</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
+    <div style="
+        max-width: 600px;
+        margin: auto;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: row;
+        overflow: hidden;
+    ">
+        <div style="
+            flex: 1;
+            padding: 20px;
+            box-sizing: border-box;
+        ">
+            <h2 style="color: #333; margin-top: 0;">Hello {{ user.email }}</h2>
+            <p>Welcome to <strong>Moti</strong>. Your account has been created successfully.</p>
+            <p>Your OTP code will expire on:</p>
+            <p><strong>{{ expiration }}</strong></p>
+
+            <div style="
+                margin-top: 20px;
+                padding: 15px;
+                background-color: #f0f0f0;
+                border-radius: 6px;
+                text-align: center;
+                font-size: 24px;
+                font-weight: bold;
+                color: #000;
+            ">
+                {{ otp_code }}
+            </div>
+        </div>
+
+        <div style="
+            flex: 1;
+            height: auto;
+            max-height: 100%;
+        ">
+            <img src="https://i.pinimg.com/736x/2f/4c/e2/2f4ce24da0fe0a99d492efabb53cf60a.jpg" 
+                 alt="Salmini"
+                 style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,94 @@
+services:
+  user_service:
+    mem_limit: 2g 
+    restart: always
+    container_name: user_service
+    build: .
+    command: gunicorn user_service.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 120
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: user_service.settings
+      PORT: 8000
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_USER: moti
+      PG_PASSWORD: moti
+      PG_DB: moti
+      CELERY_BROKER_URL: redis://redis:6379/0
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    container_name: user_db
+    image: postgres:15
+    environment:
+      POSTGRES_USER: moti
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: moti
+    ports:
+      - "55432:55432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moti"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    container_name: user_service_redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  celery_worker:
+    container_name: celery_worker
+    build: .
+    command: celery -A user_service worker --loglevel=info
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      PG_DB: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  celery_beat:
+    container_name: celery_beat
+    build: .
+    command: celery -A user_service beat --loglevel=info
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      PG_DB: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+volumes:
+  pgdata: {}
