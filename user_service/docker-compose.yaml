@@ -3,7 +3,9 @@ services:
     mem_limit: 2g 
     restart: always
     container_name: user_service
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     command: gunicorn user_service.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 120
     ports:
       - "8000:8000"
@@ -29,10 +31,10 @@ services:
     image: postgres:15
     environment:
       POSTGRES_USER: moti
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: moti  
       POSTGRES_DB: moti
     ports:
-      - "55432:55432"
+      - "5432:5432" 
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -54,15 +56,18 @@ services:
 
   celery_worker:
     container_name: celery_worker
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     command: celery -A user_service worker --loglevel=info
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
+      DJANGO_SETTINGS_MODULE: user_service.settings
       PG_HOST: db
       PG_PORT: 5432
-      PG_USER: postgres
-      PG_PASSWORD: postgres
-      PG_DB: postgres
+      PG_USER: moti
+      PG_PASSWORD: moti  
+      PG_DB: moti
     depends_on:
       db:
         condition: service_healthy
@@ -73,15 +78,18 @@ services:
 
   celery_beat:
     container_name: celery_beat
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     command: celery -A user_service beat --loglevel=info
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
+      DJANGO_SETTINGS_MODULE: user_service.settings
       PG_HOST: db
       PG_PORT: 5432
-      PG_USER: postgres
-      PG_PASSWORD: postgres
-      PG_DB: postgres
+      PG_USER: moti
+      PG_PASSWORD: moti  
+      PG_DB: moti
     depends_on:
       db:
         condition: service_healthy
@@ -91,4 +99,4 @@ services:
       - .:/app
 
 volumes:
-  pgdata: {}
+  pgdata:

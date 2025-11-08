@@ -28,33 +28,37 @@ class UserManager(BaseUserManager):
         user.set_password(password)
         user.save(using=self._db)
 
-        return user, password
+        return user
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('role', 'admin')
 
         if not extra_fields.get('is_staff'):
             raise ValueError('Must have staff privileges.')
         if not extra_fields.get('is_superuser'):
             raise ValueError('Must have super admin privileges.')
 
-        user, password = self.create_user(email, password, **extra_fields)
+        user = self.create_user(email, password, **extra_fields)
         return user
 
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(max_length=256, unique=True)
     username = models.CharField(max_length=256, unique=True, blank=True)
     moti_id = models.CharField(max_length=256, editable=False, blank=True)
-    role = models.CharField(max_length=6, validators=[MinLengthValidator(4)])  # Fixed: use validators list
+    role = models.CharField(max_length=6, validators=[MinLengthValidator(4)])  
     temp_password = models.CharField(max_length=128, blank=True, null=True)
     temp_password_expires = models.DateTimeField(blank=True, null=True)
-    last_login_ipa = ArrayField(models.CharField(max_length=256), size=10, blank=True, default=list)  # Fixed ArrayField
-    last_login = models.DateTimeField(auto_now=True, editable=False)  # Fixed: auto_now for last_login
+    last_login_ipa = ArrayField(models.CharField(max_length=256), size=10, blank=True, default=list)  
+    last_login = models.DateTimeField(auto_now=True, editable=False)  
+    login_count = models.IntegerField(editable=False)
+    sso_signup = models.BooleanField(default=False ,editable=False)
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     date_registered = models.DateTimeField(auto_now_add=True, editable=False)
+    
 
     objects = UserManager()
 
