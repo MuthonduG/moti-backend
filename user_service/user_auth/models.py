@@ -57,6 +57,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     sso_signup = models.BooleanField(default=False ,editable=False)
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=False)
     date_registered = models.DateTimeField(auto_now_add=True, editable=False)
     
 

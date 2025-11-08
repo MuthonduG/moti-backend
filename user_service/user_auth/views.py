@@ -326,7 +326,7 @@ async def request_confirmation(user, email_func):
 
 # Verify OTP and delete user
 async def confirm_and_delete_user(user, otp_code):
-    is_valid = await verify_deletion_otp(user, otp_code)
+    is_valid = await verify_otp(user, otp_code)
     
     if not is_valid:
         return Response(
@@ -336,16 +336,14 @@ async def confirm_and_delete_user(user, otp_code):
     
     user_email = user.email
     await sync_to_async(user.delete)()
-    
-    asyncio.create_task(send_farewell_email(user_email))
-    
+        
     return Response(
         {"message": "Account successfully deleted"},
         status=status.HTTP_200_OK
     )
 
 # Verify deletion OTP
-async def verify_deletion_otp(user, otp_code):
+async def verify_otp(user, otp_code):
     try:
         otp_token = await sync_to_async(
             lambda: OtpToken.objects.filter(user=user).latest('otp_created_at')
@@ -456,11 +454,41 @@ def resendOtp(request):
 async def updatePassword(request):
     try:
         email = UserSerializer.validate_email(request.data.get('email'))
+        password = request.data.get('password')
         otp_code = request.data.get('otp_token')
+        user = get_object_or_404(email=email)
+
         user = get_object_or_404(email=email)
 
         if not otp_code:
             return await request_confirmation(user=user, email_func=send_otp_email)
+        
+        return confirm_and_update_pass(user, otp_code, password)
 
     except Exception as e:
-        pass
+        logger.error(f"Async delete user error: {e}")
+        return Response(
+            {"error": "Failed to process password change request"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+
+async def confirm_and_update_pass(user, otp_code, password):
+    is_valid = await verify_otp(user=user, otp_code=otp_code)
+    
+    if not is_valid:
+        return Response(
+            {"error": "Invalid OTP"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    user.password = password
+    user.updated_at = timezone.now()
+
+    user.save()
+
+    return Response(
+        {"message": "Password updated successfully"},
+        status=status.HTTP_202_ACCEPTED
+    )
+
