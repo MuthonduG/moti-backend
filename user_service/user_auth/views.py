@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from .models import User, OtpToken
-from .serializers import UserSerializer 
+from .serializers import UserSerializer
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.core.mail import send_mail
@@ -208,7 +208,7 @@ def loginUser(request):
 # explicit register and login new user
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def googleOAuthRegister(request):
+def googleOAuth(request):
 
     try:
         token = request.data.get('token')
@@ -364,7 +364,9 @@ async def verify_otp(user, otp_code):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def verifyUserEmail(request):
-    email = UserSerializer.validate_email(request.data.get('email'))
+    serializer = UserSerializer()
+
+    email = serializer.validate_email(request.data.get('email'))
     otp_code = request.data.get('otp_token')
 
     if not email or not otp_code:
