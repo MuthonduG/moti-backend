@@ -32,7 +32,7 @@ def send_user_password(user, password):
         'password': password, 
     })
 
-    text_content = f"Hi {user.email}, your password is: {password}. Please do not share it with anyone."
+    text_content = f"Hi {user.username}, your password is: {password}. Please do not share it with anyone."
     email = EmailMultiAlternatives(subject, text_content, sender, receiver)
     email.attach_alternative(email_template, "text/html")
     email.send()

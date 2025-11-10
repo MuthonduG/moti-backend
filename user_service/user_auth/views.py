@@ -79,7 +79,7 @@ def registerUser(request):
     user_data = request.data.copy()
     user_data['password'] = hashed_password
     user_data['temp_password'] = generated_pass 
-    user_data['temp_password_expires'] = timezone.now() + timedelta(hours=2)
+    user_data['temp_password_expires'] = timezone.now()
 
     serializer = UserSerializer(data=user_data)
 
@@ -110,70 +110,100 @@ def registerUser(request):
             {"errors": serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
         )    
-    
 
-# login existing user
-@api_view(["POST"])
+# login the user
+@api_view(['POST'])
 @permission_classes([AllowAny])
-def loginUser(request):  
-    email = request.data.get('email', '').strip()
-    password = request.data.get('password') 
+def loginUser(request):
+    messages = []
 
-    if not email or not password:
+    # initialize serializer
+    serializer = UserSerializer()
+     
+    # copy user data
+    user_data = request.data.copy()
+    
+    # get email  and pass
+    email = serializer.validate_email(value=user_data.pop('email'))
+    password = user_data.get('password', None)
+    new_user_pass = user_data.get('new_pass', None)
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response (
+            {"error": "User does not exist"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # if email is validated
+    if email:
+        
+        # check if temp_password is None 
+        if user.temp_password is not None:
+
+            if password:
+                if user.temp_password == password:
+                    exp = user.temp_password_expires + timedelta(hours=24)
+
+                    if exp == timezone.now() or exp > timezone.now():
+                        if user.login_count >= 0 and new_user_pass:
+                            user.set_password(new_user_pass)
+                            user.temp_password = None
+                            user.temp_password_expires = None
+                            user.updated_at = timezone.now()
+                            user.save()
+
+                            password = user.password()
+
+                        return Response(
+                            {"error": "New password needed"},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                                
+            else:
+                return Response(
+                    {"error": "Password is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+    else:
         return Response(
-            {"error": "Email and password required!"},
+            {"error": "Email formatting issue"},
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    try:
-        user = User.objects.get(email=email)
-
-        if user.login_count < 1:
-            if password == user.temp_password:
-                new_user_pass = user.data.get('new_password')
-
-                if not new_user_pass and new_user_pass == user.temp_password:
-                    return Resposne(
-                        {"error": "You cannot set your use"}
-                    )
-
+    if password:
+        # check user pass
         if user.check_password(password):
             if not user.is_active:
                 return Response(
-                    {"error": "Account is inactive!"},
-                    status=status.HTTP_401_UNAUTHORIZED
+                    {"error": "Account is inactive"},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
             
-            if user.temp_password:
-                if user.check_password(password) == user.temp_password:
-                    return Response(
-                        {"error": f"You passord will expire in {user.temp_password_expires - timezone.now()}"}
-                    )
-                
-                user.temp_password = None
-
-            payload = {
-                'user_id': user.moti_id,
-                'exp': timezone.now() + timedelta(days=1),
-                'iat': timezone.now()
+            user_payload = {
+                "user_id": user.moti_id,
+                "exp": timezone.now() + timedelta(hours=6),
+                "iat": timezone.now()
             }
 
-            token = UserSerializer().encode_jwt(payload=payload)  
+            jwt_token = serializer.encode_jwt(payload=user_payload)
 
-            user_ip = request.META.get('HTTP_X_FORWARDED_FOR')
-            if user_ip:
-                user_ip_address = user_ip.split(',')[0]
+            login_ipa = request.META.get('HTTP_X_FORWARDED_FOR')
+
+            if login_ipa:
+                user_login_ipa = login_ipa.split(',')[0]
             else:
-                user_ip_address = request.META.get('REMOTE_ADDR')
+                user_login_ipa = request.META.get('REMOTE_ADDR')
 
             try:
-                ip_info = geocoder.ip(user_ip_address)  
-                user.last_login_ipa = [str(ip_info.ip), str(ip_info.city), str(ip_info.country)]
-            except Exception as e:
-                logger.error(f"Failed to get IP info: {e}")
-                user.last_login_ipa = [user_ip_address]
+                curr_address = geocoder.ip(user_login_ipa)
+                user.last_login_ipa = [str(curr_address.ip), str(curr_address.city), str(curr_address.country)]
             
-            user.login_count += 1
+            except Exception as e:
+                logger.error(f"Failed to get ip")
+                user.last_login_ipa = [user_login_ipa]
+            
             user.save()
 
             user_data = {
@@ -183,27 +213,20 @@ def loginUser(request):
                 "last_login_ipa": user.last_login_ipa
             }
 
-            return Response(
+            return Response (
                 {
-                    "message": "Login Successful!",
-                    "user": user_data,
-                    "token": token
-                }, status=status.HTTP_200_OK  
-            )
+                    "message": "Login successful",
+                    "user_data": user_data,
+                    "token": jwt_token
+                }, status=status.HTTP_200_OK
+            ) 
 
         else:
             return Response(
-                {"error": "Invalid credentials!"},
+                {"error": "Invalid credentials"},
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-
-    except User.DoesNotExist:
-        return Response(
-            {"error": "User doesn't exist"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
 
 # explicit register and login new user
 @api_view(['POST'])
@@ -402,6 +425,13 @@ def verifyUserEmail(request):
     if user.role.lower() == 'admin':
         user.is_staff = True
 
+    if user.temp_password_expires is None:
+        return Response(
+            {"message": "Your account has been verified"},
+            status=status.HTTP_200_OK
+        )
+        
+
     if timezone.now() > user.temp_password_expires:
         if user_pass:
             send_user_password(user, user_pass)
@@ -425,7 +455,7 @@ def verifyUserEmail(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def resendOtp(request):
-    email = UserSerializer.validate_email(request.data.get("email"))
+    email = request.data.get("email")
     if not email:
         return Response(
             {"message": "Email is required."},
