@@ -1,5 +1,6 @@
 from pathlib import Path
 from decouple import config
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -164,3 +165,17 @@ PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
     'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
 ]
+
+# rest framework integration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'user_auth.jwt_auth.CustomJWTAuthentication',
+    ]
+}
+
+# JWT Settings
+JWT_CONFIG = {
+    'ALGORITHM': 'HS256',
+    'EXPIRATION_DELTA': timedelta(hours=6), 
+}
+
