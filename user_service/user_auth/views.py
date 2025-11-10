@@ -426,6 +426,7 @@ def verifyUserEmail(request):
         user.is_staff = True
 
     if user.temp_password_expires is None:
+        user.save()
         return Response(
             {"message": "Your account has been verified"},
             status=status.HTTP_200_OK
@@ -440,6 +441,7 @@ def verifyUserEmail(request):
         user.temp_password = user_pass
         user.temp_password_expires = timezone.now() + timedelta(hours=2)
         send_user_password(user, user_pass)
+        user.save()
     
     if user_pass:
         send_user_password(user, user_pass)
