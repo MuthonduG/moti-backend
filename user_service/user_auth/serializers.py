@@ -45,25 +45,25 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def validate_role(self, value):
-        if len(value) < 4:
-            raise serializers.ValidationError("Role must be at least 4 characters long.")
+        roles = ["admin", "user", "driver", "super_admin"]
+        if len(value) < 4 and value.lower not in roles:
+            raise serializers.ValidationError("Role value has an issue.")
         return value
 
+    
     def create(self, validated_data):
         raw_password = validated_data.pop('password', None)
-        
+
+        email = validated_data.pop('email')
+
         user = User.objects.create_user(
-            email=validated_data['email'],
+            email=email,
             password=raw_password,
             **validated_data
         )
 
-        try:
-            send_user_password(user, raw_password)
-        except Exception as e:
-            logger.error(f"Failed to send user password: {e}")
-
         return user
+
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)

@@ -17,7 +17,7 @@ def send_otp_email(user, otp_code):
         'expiration': '1hr'
     })
 
-    text_content = f"Hi {user.email}, your OTP is {otp_code}. It expires in one hour."
+    text_content = f"Hi {user.username}, your OTP is {otp_code}. It expires in one hour."
     email = EmailMultiAlternatives(subject, text_content, sender, receiver)
     email.attach_alternative(email_template, "text/html")
     email.send()
@@ -32,10 +32,26 @@ def send_user_password(user, password):
         'password': password, 
     })
 
-    text_content = f"Hi {user.email}, your password is: {password}. Please do not share it with anyone."
+    text_content = f"Hi {user.username}, your password is: {password}. Please do not share it with anyone."
     email = EmailMultiAlternatives(subject, text_content, sender, receiver)
     email.attach_alternative(email_template, "text/html")
     email.send()
+
+def send_account_deletion_confirmation(user, otp_code):
+    subject = "Sad you are leaving us!"
+    sender = "muthondugithinji@gmail.com"
+    receiver = [user.email]
+
+    email_template = render_to_string("emails/account_deletion.html", {
+        'user': user,
+        'otp_code': otp_code, 
+    })
+
+    text_content = f"Hi {user.email}, your otp code is: {otp_code}. Please do not share it with anyone."
+    email = EmailMultiAlternatives(subject, text_content, sender, receiver)
+    email.attach_alternative(email_template, "text/html")
+    email.send()
+    
 
 def create_token(user):
     otp_token = OtpToken.objects.create(

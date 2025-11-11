@@ -1,5 +1,6 @@
 from pathlib import Path
 from decouple import config
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -69,9 +70,13 @@ WSGI_APPLICATION = 'user_service.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": config("PSQL_ENGINE"),
+        "NAME": config("PSQL_DB"),
+        "USER": config("PSQL_USER"),
+        "PASSWORD": config("PSQL_PASS"),
+        "HOST": config("PSQL_HOST", "db"),
+        "PORT": config("PSQL_PORT"),
     }
 }
 
@@ -160,3 +165,17 @@ PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
     'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
 ]
+
+# rest framework integration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'user_auth.jwt_auth.CustomJWTAuthentication',
+    ]
+}
+
+# JWT Settings
+JWT_CONFIG = {
+    'ALGORITHM': 'HS256',
+    'EXPIRATION_DELTA': timedelta(hours=6), 
+}
+

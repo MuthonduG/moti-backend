@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>OTP Verification</title>
+    <title>Account Deletion</title>
 </head>
 <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
     <div style="
@@ -21,8 +21,9 @@
             box-sizing: border-box;
         ">
             <h2 style="color: #333; margin-top: 0;">Hello {{ user.username }}</h2>
-            <p>We welcome you again to <strong>Moti</strong>. Your account has been verified successfully and you are now ready to enjoy .</p>
-            <p>To login, use the password provided below. Kindly, do not share your credentintials with anyone</p>
+            <p>Welcome to <strong>Moti</strong>. A request has been made for your Moti account to be deleted.</p>
+            <p>If it's you, use the OTP code below to confirm request:</p>
+            <p><strong>{{ expiration }}</strong></p>
 
             <div style="
                 margin-top: 20px;
@@ -34,7 +35,7 @@
                 font-weight: bold;
                 color: #000;
             ">
-                {{ password }}
+                {{ otp_code }}
             </div>
         </div>
 
@@ -44,7 +45,7 @@
             max-height: 100%;
         ">
             <img src="https://i.pinimg.com/736x/2f/4c/e2/2f4ce24da0fe0a99d492efabb53cf60a.jpg" 
-                 alt="moti"
+                 alt="Salmini"
                  style="width: 100%; height: 100%; object-fit: cover; display: block;" />
         </div>
     </div>
