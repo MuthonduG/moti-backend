@@ -2,7 +2,6 @@ services:
   user_service:
     mem_limit: 2g 
     restart: always
-    container_name: user_service
     build: 
       context: .
       dockerfile: Dockerfile
@@ -14,89 +13,38 @@ services:
       PORT: 8000
       PG_HOST: db
       PG_PORT: 5432
-      PG_USER: moti
-      PG_PASSWORD: moti
-      PG_DB: moti
-      CELERY_BROKER_URL: redis://redis:6379/0
+      PG_USER: motiuser
+      PG_PASSWORD: motipass
+      PG_DB: motidb
     volumes:
       - .:/app
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    networks:
+      - user_service_network
 
   db:
-    container_name: user_db
     image: postgres:15
     environment:
-      POSTGRES_USER: moti
-      POSTGRES_PASSWORD: moti  
-      POSTGRES_DB: moti
+      POSTGRES_USER: motiuser
+      POSTGRES_PASSWORD: motipass  
+      POSTGRES_DB: motidb
     ports:
-      - "5432:5432" 
+      - "5432:5432"   
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U moti"]
+      test: ["CMD-SHELL", "pg_isready -U motiuser -d motidb"]
       interval: 5s
       timeout: 3s
       retries: 5
-
-  redis:
-    container_name: user_service_redis
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  celery_worker:
-    container_name: celery_worker
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A user_service worker --loglevel=info
-    environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      DJANGO_SETTINGS_MODULE: user_service.settings
-      PG_HOST: db
-      PG_PORT: 5432
-      PG_USER: moti
-      PG_PASSWORD: moti  
-      PG_DB: moti
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - .:/app
-
-  celery_beat:
-    container_name: celery_beat
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A user_service beat --loglevel=info
-    environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      DJANGO_SETTINGS_MODULE: user_service.settings
-      PG_HOST: db
-      PG_PORT: 5432
-      PG_USER: moti
-      PG_PASSWORD: moti  
-      PG_DB: moti
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - .:/app
+    networks:
+      - user_service_network
 
 volumes:
   pgdata:
+
+networks:
+  user_service_network:
+    driver: bridge
