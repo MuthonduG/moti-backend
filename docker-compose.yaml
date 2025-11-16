@@ -1,71 +1,61 @@
-version: "3.9"
-
 services:
-  # --- Zookeeper ---
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.0
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-    networks:
-      - moti-network
-    volumes:
-      - zookeeper-data:/var/lib/zookeeper/data
-      - zookeeper-log:/var/lib/zookeeper/log
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo stat | nc localhost 2181 | grep Mode"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  # --- Kafka Broker ---
   kafka:
     image: confluentinc/cp-kafka:7.6.0
-    depends_on:
-      zookeeper:
-        condition: service_healthy
+    container_name: kafka-broker
+    hostname: kafka
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      # Generate a cluster ID - you can use any UUID or run: kafka-storage random-uuid
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     ports:
-      - "9092:9092"
+      - "9092:9092"    
+      - "29092:29092"  
+      - "9093:9093"    
     networks:
       - moti-network
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD", "bash", "-c", "nc -z localhost 9092"]
-      interval: 20s
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
       timeout: 10s
-      retries: 5
-      start_period: 40s
+      retries: 10
+      start_period: 60s
 
-  # --- Kafka UI ---
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+    restart: on-failure
     environment:
       KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_CLUSTERS_0_READONLY: "false"
+      # Add retry configuration
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_PROVECTUS: DEBUG
     ports:
       - "8080:8080"
     networks:
       - moti-network
 
-  # --- Postgres DB ---
   db:
     image: postgres:15
+    container_name: postgres-db
     environment:
       POSTGRES_USER: motiuser
       POSTGRES_PASSWORD: motipass
@@ -82,9 +72,9 @@ services:
     networks:
       - moti-network
 
-  # --- User Service ---
   user-service:
     build: ./user_service
+    container_name: user-service
     command: gunicorn user_service.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 120
     ports:
       - "8000:8000"
@@ -96,7 +86,8 @@ services:
       PG_USER: motiuser
       PG_PASSWORD: motipass
       PG_DB: motidb
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_USER_EVENTS_TOPIC: user-events
     volumes:
       - ./user_service:/app
     depends_on:
@@ -110,9 +101,8 @@ services:
 networks:
   moti-network:
     driver: bridge
+    name: moti-network
 
 volumes:
-  zookeeper-data:
-  zookeeper-log:
   kafka-data:
   pgdata:

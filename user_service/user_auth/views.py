@@ -15,7 +15,7 @@ import geocoder, logging, jwt
 from decouple import config
 from google.auth.transport import requests
 from google.oauth2 import id_token
-
+from kafka_events.producer import send_user_deleted, send_user_updated, send_user_registered, send_user_login
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,7 @@ def registerUser(request):
 
         try:
             create_token(user)
+            send_user_registered(user)
         except Exception as e:
             logger.error(f"Failed to send OTP to new user {user.email}: {e}")
             return Response(  
@@ -213,6 +214,8 @@ def loginUser(request):
                 "last_login_ipa": user.last_login_ipa
             }
 
+            send_user_login(user=user, login_method="password")
+            
             return Response (
                 {
                     "message": "Login successful",
@@ -268,6 +271,8 @@ def googleOAuth(request):
             }
             token = UserSerializer().encode_jwt(payload=payload)
 
+            send_user_login(user=user, login_method="google_oauth")
+
             return Response({
                 "message": "Login successful",
                 "user": UserSerializer(user).data,
@@ -293,7 +298,8 @@ def googleOAuth(request):
             "iat": timezone.now()
         }
         token = UserSerializer().encode_jwt(payload=payload)
-
+        
+        send_user_registered(user=user)
         return Response({
             "message": "User registered successfully",
             "user": UserSerializer(user).data,
@@ -359,7 +365,8 @@ async def confirm_and_delete_user(user, otp_code):
     
     user_email = user.email
     await sync_to_async(user.delete)()
-        
+    
+    send_user_deleted(user_id=user.moti_id, email=user_email)
     return Response(
         {"message": "Account successfully deleted"},
         status=status.HTTP_200_OK
