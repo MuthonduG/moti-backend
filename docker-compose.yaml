@@ -7,7 +7,6 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_NODE_ID: 1
-      # Generate a cluster ID - you can use any UUID or run: kafka-storage random-uuid
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
@@ -45,7 +44,6 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
       KAFKA_CLUSTERS_0_READONLY: "false"
-      # Add retry configuration
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_PROVECTUS: DEBUG
     ports:
@@ -95,6 +93,35 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    networks:
+      - moti-network
+    
+  journey-service:
+    build: ./journey_service
+    container_name: journey-service
+    command: gunicorn journey_service.wsgi:application --bind 0.0.0.0:8001 --workers 1 --timeout 120
+    ports:
+      - "8001:8001"
+    environment:
+      DJANGO_SETTINGS_MODULE: journey_service.settings
+      PORT: 8001
+      PG_HOST: db
+      PG_USER: motiuser
+      PG_PORT: 5432
+      PG_PASSWORD: motipass
+      PG_DB: journey_db
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_USER_EVENTS_TOPIC: user-events
+      KAFKA_CONSUMER_GROUP_ID: journey-service-group 
+    volumes:
+      - ./journey_service:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      user-service:
+        condition: service_started
     networks:
       - moti-network
 

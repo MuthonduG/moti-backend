@@ -1,0 +1,50 @@
+services:
+  journey_service:
+    mem_limit: 2g 
+    restart: always
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: gunicorn journey_service.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 120
+    ports:
+      - "8001:8001"
+    environment:
+      DJANGO_SETTINGS_MODULE: journey_service.settings
+      PORT: 8001
+      PG_HOST: db
+      PG_PORT: 5432
+      PG_USER: motiuser
+      PG_PASSWORD: motipass
+      PG_DB: motidb
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - journey_service_network
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: motiuser
+      POSTGRES_PASSWORD: motipass  
+      POSTGRES_DB: motidb
+    ports:
+      - "5432:5432"   
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U motiuser -d motidb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - journey_service_network
+
+volumes:
+  pgdata:
+
+networks:
+  journey_service_network:
+    driver: bridge
